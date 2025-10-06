@@ -1,0 +1,543 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// --------------------------main login and domato store-----------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model CartItem {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+}
+
+enum PaymentMethod {
+  COD
+  ONLINE
+}
+
+enum OrderStatus {
+  PACKING
+  SHIPPED
+  DELIVERED
+  CANCELED
+}
+
+model ShippingAddressForm {
+  id                String   @id @default(uuid())
+  fullName          String
+  alternativeMobile String?
+  mobile            String
+  email             String?
+  address1          String
+  address2          String?
+  city              String
+  state             String
+  pinCode           String
+  landmark          String?
+  country           String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  orders Order[]
+}
+
+model Order {
+  id                    String              @id @default(uuid())
+  user                  User                @relation(fields: [userId], references: [id])
+  userId                String
+  items                 OrderItem[] // Relation to ordered items
+  totalAmount           Float
+  status                OrderStatus         @default(PACKING)
+  shippingAddressForm   ShippingAddressForm @relation(fields: [shippingAddressFormId], references: [id])
+  shippingAddressFormId String
+  paymentMethod         PaymentMethod
+  paid                  Boolean             @default(false)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+}
+
+model OrderItem {
+  id String @id @default(uuid())
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String
+
+  item   Item   @relation(fields: [itemId], references: [id])
+  itemId String
+
+  quantity   Int
+  totalPrice Float
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id                String  @id @default(uuid())
+  name              String
+  role              Role?   @default(USER)
+  mobileNumber      String  @unique
+  alternativeMobile String?
+  email             String?
+  city              String?
+  state             String?
+  pincode           String?
+  fullAddress       String?
+  profileImage      String? // ✅ URL or path of the user's image
+
+  // Relationships
+  cartItems CartItem[]
+  orders    Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  items     Item[]   @relation("ItemCategories")
+  createdAt DateTime @default(now())
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  items     Item[]   @relation("ItemTags")
+  createdAt DateTime @default(now())
+}
+
+model Level {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  items     Item[]   @relation("ItemLevels")
+  createdAt DateTime @default(now())
+}
+
+model Item {
+  id              String   @id @default(uuid())
+  itemCode        String   @unique
+  name            String
+  images          String[]
+  description     String
+  instructions    String
+  price           Float
+  originalPrice   Float
+  numberOfPieces  String
+  color           String
+  material        String
+  recommendedAge  String
+  size            String
+  weight          String
+  itemsInBox      String
+  totalItemsSold  String
+  brand           String
+  manufacturer    String
+  countryOfOrigin String
+  rating          String
+  totalReviews    String
+
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // ✅ Relationships
+  cartItems  CartItem[]
+  categories Category[]  @relation("ItemCategories")
+  tags       Tag[]       @relation("ItemTags")
+  levels     Level[]     @relation("ItemLevels")
+  OrderItem  OrderItem[]
+}
+
+// ---------------------------------LMS--------------------------------------
+// ---------------------------------LMS--------------------------------------
+// ---------------------------------LMS--------------------------------------
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALFDAY
+}
+
+enum RoleType {
+  owner
+  teacher
+  student
+  super_admin
+}
+
+// ================= OWNER ==================
+model Owner {
+  id           String   @id @default(cuid())
+  role         RoleType @default(owner)
+  name         String
+  schoolName   String
+  city         String
+  state        String
+  phoneNumber  String   @unique
+  email        String?
+  passwordHash String
+  schoolLogo   String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  classes  Class[]
+  teachers Teacher[]
+  notices  Notice[]
+}
+
+// ================= CLASS ==================
+model Class {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  owner     Owner      @relation(fields: [ownerId], references: [id])
+  sections  Section[]
+  students  Student[]
+  subjects  Subject[]
+  schedules Schedule[]
+
+  assignments       Assignment[]
+  learningMaterials LearningMaterial[]
+  progressReports   ProgressReport[]
+}
+
+// ================= TEACHER ==================
+model Teacher {
+  id             String   @id @default(cuid())
+  role           RoleType @default(teacher)
+  name           String
+  phoneNumber    String   @unique
+  dateOfBirth    String
+  email          String   @unique
+  gender         Gender
+  salary         Float?
+  experienceYear Int
+  profilePhoto   String?
+  address        String
+  password       String
+  ownerId        String
+  createdAt      DateTime @default(now())
+
+  // Relations
+  owner             Owner               @relation(fields: [ownerId], references: [id])
+  teacherAttendance TeacherAttendance[]
+  subjects          SubjectTeacher[]
+  schedules         Schedule[]
+  notifications     Notification[]
+  assignments       Assignment[]
+  learningMaterials LearningMaterial[]
+  progressReports   ProgressReport[]
+
+  // ✅ Back relation for being a class teacher of a section
+  sectionTeacherOf Section?
+}
+
+// ================= SECTION ==================
+model Section {
+  id      String @id @default(cuid())
+  name    String
+  classId String
+
+  // Relations
+  class             Class              @relation(fields: [classId], references: [id])
+  students          Student[]
+  schedules         Schedule[]
+  assignments       Assignment[]
+  learningMaterials LearningMaterial[]
+  progressReports   ProgressReport[]
+
+  // ✅ Section → Class Teacher (unique)
+  classTeacher   Teacher? @relation(fields: [classTeacherId], references: [id])
+  classTeacherId String?  @unique
+}
+
+// ================= STUDENT ==================
+model Student {
+  id            String   @id @default(cuid())
+  role          RoleType @default(student)
+  name          String
+  dateOfBirth   String
+  fatherName    String
+  motherName    String
+  guardianPhone String   @unique
+  address       String
+  gender        Gender
+  rollNumber    Int?
+  profilePhoto  String?
+  password      String
+  createdAt     DateTime @default(now())
+
+  pushToken String?
+
+  // Relations
+  classId   String
+  sectionId String
+  class     Class    @relation(fields: [classId], references: [id])
+  section   Section  @relation(fields: [sectionId], references: [id])
+
+  attendance    Attendance[]
+  notifications Notification[]
+  assignmentNotifications AssignmentNotification[]
+  progressReports         ProgressReport[]
+}
+
+// ================= STUDENT ATTENDANCE ==================
+model Attendance {
+  id        String           @id @default(cuid())
+  date      DateTime
+  status    AttendanceStatus
+  studentId String
+  student   Student          @relation(fields: [studentId], references: [id])
+
+  @@unique([studentId, date])
+}
+
+enum MarkedBy { 
+  SELF
+  OWNER
+}
+
+// ================= TEACHER ATTENDANCE ==================
+model TeacherAttendance {
+  id        String           @id @default(cuid())
+  date      DateTime
+  status    AttendanceStatus
+  teacherId String
+  teacher   Teacher          @relation(fields: [teacherId], references: [id])
+
+  // new fields
+  markedAt  DateTime         @default(now())
+  markedBy  MarkedBy         @default(OWNER)               
+  location  String           @default("Not Entered")               
+
+  @@unique([teacherId, date])
+}
+
+// ================= SUBJECT ==================
+model Subject {
+  id      String @id @default(cuid())
+  name    String
+  classId String
+
+  // Relations
+  class             Class              @relation(fields: [classId], references: [id])
+  teachers          SubjectTeacher[]
+  schedules         Schedule[]
+  assignments       Assignment[]
+  learningMaterials LearningMaterial[]
+}
+
+// ================= TIMETABLE / SCHEDULE ==================
+model Schedule {
+  id        String @id @default(cuid())
+  dayOfWeek Int
+  startTime String
+  endTime   String
+
+  classId   String
+  sectionId String
+  subjectId String
+  teacherId String
+
+  // Relations
+  class   Class    @relation(fields: [classId], references: [id])
+  section Section? @relation(fields: [sectionId], references: [id])
+  subject Subject  @relation(fields: [subjectId], references: [id])
+  teacher Teacher  @relation(fields: [teacherId], references: [id])
+}
+
+model SubjectTeacher {
+  id        String @id @default(cuid())
+  subjectId String
+  teacherId String
+
+  subject Subject @relation(fields: [subjectId], references: [id])
+  teacher Teacher @relation(fields: [teacherId], references: [id])
+
+  @@unique([subjectId, teacherId])
+}
+
+// ================= NOTICE SYSTEM ==================
+enum NoticeRecipientType {
+  TEACHERS
+  STUDENTS
+  BOTH
+}
+
+model Notice {
+  id        String              @id @default(cuid())
+  title     String
+  message   String?
+  fileUrl   String?
+  recipient NoticeRecipientType
+  createdAt DateTime            @default(now())
+
+  ownerId String
+  owner   Owner  @relation(fields: [ownerId], references: [id])
+
+  notifications Notification[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  noticeId  String
+  notice    Notice   @relation(fields: [noticeId], references: [id])
+
+  studentId String?
+  teacherId String?
+
+  student Student? @relation(fields: [studentId], references: [id])
+  teacher Teacher? @relation(fields: [teacherId], references: [id])
+}
+
+// ================= ASSIGNMENT ==================
+model Assignment {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  fileUrl     String?
+  dueDate     DateTime
+  createdAt   DateTime @default(now())
+
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id])
+
+  classId String
+  class   Class  @relation(fields: [classId], references: [id])
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id])
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  notifications AssignmentNotification[]
+}
+
+model AssignmentNotification {
+  id        String   @id @default(cuid())
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  assignmentId String
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+}
+
+// ================= LEARNING MATERIAL ==================
+model LearningMaterial {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  createdAt   DateTime @default(now())
+
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id])
+
+  classId String
+  class   Class  @relation(fields: [classId], references: [id])
+
+  sectionId String
+  section   Section @relation(fields: [sectionId], references: [id])
+
+  subjectId String
+  subject   Subject @relation(fields: [subjectId], references: [id])
+
+  files LearningMaterialFile[]
+}
+
+model LearningMaterialFile {
+  id       String @id @default(cuid())
+  url      String
+  fileName String
+  fileType String
+  fileSize Int
+
+  materialId String
+  material   LearningMaterial @relation(fields: [materialId], references: [id])
+}
+
+// ================= PROGRESS REPORT ==================
+model ProgressReport {
+  id        String  @id @default(uuid())
+  teacher   Teacher @relation(fields: [teacherId], references: [id])
+  teacherId String
+
+  class   Class  @relation(fields: [classId], references: [id])
+  classId String
+
+  section   Section @relation(fields: [sectionId], references: [id])
+  sectionId String
+
+  student   Student @relation(fields: [studentId], references: [id])
+  studentId String
+
+  reportType  ReportType
+  performance PerformanceType
+  remark      String?
+  grade       GradeType?
+  score       Float?
+
+  attachmentUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ReportType {
+  WEEKLY
+  MONTHLY
+  SEMESTER
+  ANNUAL
+}
+
+enum PerformanceType {
+  EXCELLENT
+  GOOD
+  AVERAGE
+  NEEDS_IMPROVEMENT
+}
+
+enum GradeType {
+  A_PLUS
+  A
+  B_PLUS
+  B
+  C_PLUS
+  C
+  D
+  F
+}
